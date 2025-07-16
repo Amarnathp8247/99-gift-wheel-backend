@@ -5,7 +5,11 @@ import errorHandler from './middlewares/error.middleware.js';
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    credentials: true,
+  }));
+  
 app.use(json());
 
 app.use('/api/v1', routes);
