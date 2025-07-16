@@ -23,8 +23,8 @@ router.put('/prizes/:id', authMiddleware,  updatePrize);
 router.delete('/prizes/:id', authMiddleware,  deletePrize);
 
 // Spin Config (Admin only)
-router.post('/config', authMiddleware,  createSpinConfig);
-router.get('/config',   getSpinConfig);
+router.post('/config',  createSpinConfig);
+router.get('/config',  getSpinConfig);
 router.put('/config/:id', authMiddleware,  updateSpinConfig);
 router.delete('/config/:id', authMiddleware,  deleteSpinConfig);
 
