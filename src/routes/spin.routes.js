@@ -18,17 +18,17 @@ const router = express.Router();
 // Prize CRUD (Admin protected)
 router.get('/prizes', listPrizes); // public or auth protected as needed
 router.get('/prizes/:id', getPrize); // public or auth protected as needed
-router.post('/prizes', authMiddleware,  createPrize);
-router.put('/prizes/:id', authMiddleware,  updatePrize);
-router.delete('/prizes/:id', authMiddleware,  deletePrize);
+router.post('/prizes', authMiddleware, createPrize);
+router.put('/prizes/:id', authMiddleware, updatePrize);
+router.delete('/prizes/:id', authMiddleware, deletePrize);
 
 // Spin Config (Admin only)
-router.post('/config',  createSpinConfig);
-router.get('/config',  getSpinConfig);
-router.put('/config/:id', authMiddleware,  updateSpinConfig);
-router.delete('/config/:id', authMiddleware,  deleteSpinConfig);
+router.post('/config', authMiddleware, createSpinConfig);
+router.get('/config', authMiddleware, getSpinConfig);
+router.put('/config/:id', authMiddleware, updateSpinConfig);
+router.delete('/config/:id', authMiddleware, deleteSpinConfig);
 
 // Spin endpoint (User)
-router.post('/handle/wheel', authMiddleware, spinWheel);
+router.post('/handle/wheel', spinWheel);
 
 export default router;
