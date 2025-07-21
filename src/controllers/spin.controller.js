@@ -11,8 +11,10 @@ import {
   handleSpin,
 } from '../services/spin.service.js';
 
+import User from '../models/user.model.js'; // Make sure this path is correct
+
 // 🎁 Prize Controllers
-async function listPrizes(req, res) {
+export async function listPrizes(req, res) {
   try {
     const result = await getAllPrizes();
     if (!result.status) {
@@ -24,7 +26,7 @@ async function listPrizes(req, res) {
   }
 }
 
-async function getPrize(req, res) {
+export async function getPrize(req, res) {
   try {
     const result = await getPrizeById(req.params.id);
     if (!result.status) return res.status(404).json({ message: result.message || 'Prize not found' });
@@ -34,7 +36,7 @@ async function getPrize(req, res) {
   }
 }
 
-async function createPrize(req, res) {
+export async function createPrize(req, res) {
   try {
     const result = await createPrizeService(req.body);
     if (!result.status) {
@@ -46,7 +48,7 @@ async function createPrize(req, res) {
   }
 }
 
-async function updatePrize(req, res) {
+export async function updatePrize(req, res) {
   try {
     const result = await updatePrizeService(req.params.id, req.body);
     if (!result.status) return res.status(404).json({ message: result.message || 'Prize not found' });
@@ -56,7 +58,7 @@ async function updatePrize(req, res) {
   }
 }
 
-async function deletePrize(req, res) {
+export async function deletePrize(req, res) {
   try {
     const result = await deletePrizeService(req.params.id);
     if (!result.status) return res.status(404).json({ message: result.message || 'Prize not found' });
@@ -67,21 +69,40 @@ async function deletePrize(req, res) {
 }
 
 // 🎡 Spin Logic
-async function spinWheel(req, res) {
+export async function spinWheel(req, res) {
   try {
-    const visitorId = req.body.visitorId;
-    if (!visitorId) {
-      return res.status(400).json({ status: false, message: 'visitorId is required' });
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ status: false, message: 'userId is required' });
     }
-    const result = await handleSpin(visitorId);
-    res.json(result);
+
+    // Spin result from service
+    const spinResult = await handleSpin(userId);
+
+    if (!spinResult.status) {
+      return res.status(400).json(spinResult);
+    }
+
+    const { won, prize } = spinResult;
+
+    // Update wallet only if user won and prize has value
+    if (won && prize && prize.value) {
+      const user = await User.findById(userId);
+      if (user) {
+        user.walletAmount += parseFloat(prize.value); // prize.value must be a number
+        await user.save();
+      }
+    }
+
+    res.json(spinResult);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ status: false, message: err.message });
   }
 }
 
 // ⚙️ Spin Config Controllers
-async function createSpinConfig(req, res) {
+export async function createSpinConfig(req, res) {
   try {
     const { winProbability, maxDailySpins, maxDailyWinners, prizes } = req.body;
 
@@ -106,7 +127,7 @@ async function createSpinConfig(req, res) {
   }
 }
 
-async function updateSpinConfig(req, res) {
+export async function updateSpinConfig(req, res) {
   try {
     const data = req.body;
 
@@ -126,7 +147,7 @@ async function updateSpinConfig(req, res) {
   }
 }
 
-async function getSpinConfig(req, res) {
+export async function getSpinConfig(req, res) {
   try {
     const result = await getSpinConfigService();
     if (!result.status) {
@@ -138,7 +159,7 @@ async function getSpinConfig(req, res) {
   }
 }
 
-async function deleteSpinConfig(req, res) {
+export async function deleteSpinConfig(req, res) {
   try {
     const result = await deleteSpinConfigService(req.params.id);
     if (!result.status) {
@@ -149,17 +170,3 @@ async function deleteSpinConfig(req, res) {
     res.status(500).json({ status: false, message: err.message });
   }
 }
-
-// ✅ Export all
-export {
-  listPrizes,
-  getPrize,
-  createPrize,
-  updatePrize,
-  deletePrize,
-  spinWheel,
-  createSpinConfig,
-  updateSpinConfig,
-  getSpinConfig,
-  deleteSpinConfig
-};

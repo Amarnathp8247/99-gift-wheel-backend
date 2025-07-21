@@ -1,6 +1,7 @@
-import { Schema, model } from 'mongoose';
+import mongoose from 'mongoose';
+import bcrypt from 'bcrypt';
 
-const userSchema = new Schema({
+const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
@@ -12,13 +13,14 @@ const userSchema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    // Optional: add email validation regex if desired
   },
 
   mobile: {
     type: String,
     required: true,
     unique: true,
-    match: /^[6-9]\d{9}$/, // Valid Indian mobile number
+    match: /^[6-9]\d{9}$/, // Indian mobile number validation
   },
 
   gender: {
@@ -38,7 +40,7 @@ const userSchema = new Schema({
   },
 
   parent_id: {
-    type: Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null,
   },
@@ -47,19 +49,38 @@ const userSchema = new Schema({
     type: Number,
     default: 0,
   },
+
   totalLoses: {
     type: Number,
     default: 0,
   },
+
   walletAmount: {
     type: Number,
     default: 0,
   },
+
   spins: [{
-    type: Schema.Types.ObjectId,
+    type: mongoose.Schema.Types.ObjectId,
     ref: 'Spin'
   }],
 
 }, { timestamps: true });
 
-export default model('User', userSchema);
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  try {
+    this.password = await bcrypt.hash(this.password, 10);
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Optional method to compare password on login
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
+export default mongoose.model('User', userSchema);
