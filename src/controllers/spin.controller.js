@@ -71,14 +71,11 @@ export async function deletePrize(req, res) {
 // 🎡 Spin Logic
 export async function spinWheel(req, res) {
   try {
-    const { userId } = req.body;
+    const { visitorId } = req.body;
+    const fallbackId = visitorId; // fallback for anonymous users
 
-    if (!userId) {
-      return res.status(400).json({ status: false, message: 'userId is required' });
-    }
-
-    // Spin result from service
-    const spinResult = await handleSpin(userId);
+    // Call the spin handler service
+    const spinResult = await handleSpin(fallbackId);
 
     if (!spinResult.status) {
       return res.status(400).json(spinResult);
@@ -86,20 +83,25 @@ export async function spinWheel(req, res) {
 
     const { won, prize } = spinResult;
 
-    // Update wallet only if user won and prize has value
-    if (won && prize && prize.value) {
+    // If the user is not anonymous and won a prize, update wallet
+    if (won && prize && prize.value && userId && userId !== 'anonymous') {
       const user = await User.findById(userId);
       if (user) {
-        user.walletAmount += parseFloat(prize.value); // prize.value must be a number
+        user.walletAmount += parseFloat(prize.value);
         await user.save();
       }
     }
 
+    // Return the result
     res.json(spinResult);
   } catch (err) {
+    console.error('Spin error:', err.message);
     res.status(500).json({ status: false, message: err.message });
   }
 }
+
+
+
 
 // ⚙️ Spin Config Controllers
 export async function createSpinConfig(req, res) {
