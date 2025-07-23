@@ -1,3 +1,4 @@
+// src/models/user.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 
@@ -9,13 +10,19 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   city: { type: String, required: true },
   parent_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+  // Tracks anonymous user session before signup
+  visitorId: { type: String },
+
   totalWins: { type: Number, default: 0 },
   totalLoses: { type: Number, default: 0 },
   walletAmount: { type: Number, default: 0 },
+
+  // Link to spins performed
   spins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Spin' }],
 }, { timestamps: true });
 
-// Password hashing middleware
+// Hash password before saving
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   try {
@@ -26,7 +33,7 @@ userSchema.pre('save', async function(next) {
   }
 });
 
-// Password comparison method
+// Compare entered password with stored hash
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };

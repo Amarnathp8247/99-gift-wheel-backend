@@ -5,7 +5,7 @@ import SpinConfig from '../models/spinConfig.model.js';
 import User from '../models/user.model.js';
 import AnonymousUser from '../models/anonymousUser.model.js';
 const { ObjectId } = mongoose.Types;
-// ======= Prize Services =======
+
 
 export async function getAllPrizes() {
   try {

@@ -1,89 +1,127 @@
-import { registerSchema } from '../validators/auth.validator.js';
 import User from '../models/user.model.js';
 import Spin from '../models/spin.model.js';
-import bcrypt from 'bcryptjs';
+import Prize from '../models/prize.model.js';
+import bcrypt from 'bcrypt';
+import axios from 'axios';
 
-export async function register(req, res, next) {
+export const register = async (req, res) => {
   try {
-    // 1️⃣ Validate input using Joi schema
-    const { error, value } = registerSchema.validate(req.body);
-    if (error) {
+    const {
+      name,
+      email,
+      mobile,
+      gender,
+      password,
+      city,
+      visitorId,
+      parent_id = null,
+    } = req.body;
+
+    if (!name || !email || !mobile || !gender || !password || !city || !visitorId) {
       return res.status(400).json({
         status: false,
-        message: error.details[0].message,
-        messageCode: 'VALIDATION_ERROR',
-        data: null,
+        message: 'All fields including visitorId are required',
       });
     }
 
-    const { name, email, mobile, gender, city, parent_id, password, visitorId, walletAmount = 0 } = value;
-
-    // 2️⃣ Check if email or mobile already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { mobile }]
-    });
-
+    const existingUser = await User.findOne({ $or: [{ email }, { mobile }] });
     if (existingUser) {
-      return res.status(409).json({
+      return res.status(400).json({
         status: false,
-        message: 'Email or mobile already registered',
-        messageCode: 'DUPLICATE_USER',
-        data: null,
+        message: 'User already exists with given email or mobile',
       });
     }
 
-    // 3️⃣ Hash the password
+    // ✅ Find anonymous spins linked to visitorId
+    const anonymousSpins = await Spin.find({ visitorId, user: null }).populate('prize');
+
+    const walletFromSpins = anonymousSpins.reduce((sum, spin) => {
+      return spin.result === 'win' && spin.prize?.walletAmount
+        ? sum + spin.prize.walletAmount
+        : sum;
+    }, 0);
+
+    let syncError = null;
+    try {
+      const response = await axios.post(
+        'https://api2.99gift.in/api/v6/user/register',
+        {
+          name,
+          email,
+          mobile,
+          gender,
+          password,
+          parent_id,
+          city,
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json, text/plain, */*',
+            Origin: 'https://www.99gift.in',
+            Referer: 'https://www.99gift.in/',
+          },
+        }
+      );
+      const syncResult = response.data;
+      if (!syncResult.status) {
+        syncError = syncResult.message || 'Unknown error from 99Gift';
+      }
+    } catch (error) {
+      syncError = error.response?.data?.message || error.message || '99Gift sync failed';
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 4️⃣ Default stats
-    let totalWins = 0;
-    let totalLoses = 0;
-    let claimedWallet = 0;
-
-    // 5️⃣ Get spin record from visitor ID
-    if (visitorId) {
-      const spinRecord = await Spin.findOne({ visitorId }).sort({ createdAt: -1 }).populate('prize');
-      if (spinRecord) {
-        if (spinRecord.result === 'win') {
-          totalWins = 1;
-          claimedWallet = spinRecord.prize?.value ? parseFloat(spinRecord.prize.value) : parseFloat(walletAmount || 0);
-        } else if (spinRecord.result === 'lose') {
-          totalLoses = 1;
-        }
-      }
-    }
-
-    // 6️⃣ Create and save the user
-    const user = new User({
+    const newUser = new User({
       name,
       email,
       mobile,
       gender,
       password: hashedPassword,
-      parent_id: parent_id || null,
       city,
-      totalWins,
-      totalLoses,
-      walletAmount: claimedWallet,
+      parent_id,
+      walletAmount: walletFromSpins,
+      visitorId, // ✅ store visitorId
     });
 
-    await user.save();
+    await newUser.save();
+
+    const spinIds = anonymousSpins.map((s) => s._id);
+    await Spin.updateMany(
+      { _id: { $in: spinIds } },
+      { $set: { user: newUser._id } }
+    );
+
+    newUser.spins = spinIds;
+    await newUser.save();
 
     return res.status(201).json({
       status: true,
       message: 'User registered successfully',
-      data: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        mobile: user.mobile,
-        totalWins,
-        totalLoses,
-        walletAmount: claimedWallet,
+      walletCredited: walletFromSpins,
+      visitorId, // ✅ Added in response
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        mobile: newUser.mobile,
+        gender: newUser.gender,
+        city: newUser.city,
+        parent_id: newUser.parent_id,
+        walletAmount: newUser.walletAmount,
+        totalWins: newUser.totalWins,
+        totalLoses: newUser.totalLoses,
+        spins: newUser.spins,
       },
+      syncError,
     });
 
   } catch (err) {
-    next(err);
+    console.error('Register Error:', err);
+    return res.status(500).json({
+      status: false,
+      message: 'Registration failed',
+    });
   }
-}
+};
