@@ -2,11 +2,11 @@ import mongoose from 'mongoose';
 import Spin from '../models/spin.model.js';
 import Prize from '../models/prize.model.js';
 import SpinConfig from '../models/spinConfig.model.js';
-import User from '../models/user.model.js';
 import AnonymousUser from '../models/anonymousUser.model.js';
+
 const { ObjectId } = mongoose.Types;
 
-
+// ======= Prize Services =======
 export async function getAllPrizes() {
   try {
     const prizes = await Prize.find();
@@ -58,7 +58,6 @@ export async function deletePrize(id) {
 }
 
 // ======= SpinConfig Services =======
-
 export async function createSpinConfig(data) {
   try {
     const existingConfig = await SpinConfig.findOne();
@@ -105,10 +104,6 @@ export async function deleteSpinConfig(id) {
 }
 
 // ========== Spin Logic ==========
-function isValidObjectId(id) {
-  return ObjectId.isValid(id) && (new ObjectId(id)).toString() === id;
-}
-
 function pickPrizeByChance(prizes) {
   const validPrizes = prizes.filter(p => p.chance > 0);
   const totalChance = validPrizes.reduce((sum, p) => sum + p.chance, 0);
@@ -124,29 +119,14 @@ function pickPrizeByChance(prizes) {
 
   return null;
 }
+
 function getTodayBounds() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-
   const end = new Date();
   end.setHours(23, 59, 59, 999);
-
   return { start, end };
 }
-function getRandomPrize(prizes) {
-  const totalWeight = prizes.reduce((acc, p) => acc + p.chance, 0);
-  const rand = Math.random() * totalWeight;
-  let sum = 0;
-
-  for (const prize of prizes) {
-    sum += prize.chance;
-    if (rand <= sum) {
-      return prize;
-    }
-  }
-  return null;
-}
-
 
 export async function handleSpin(visitorId) {
   try {
@@ -156,20 +136,17 @@ export async function handleSpin(visitorId) {
 
     const cleanedVisitorId = visitorId.trim().toLowerCase();
 
-    // Get latest config
     const config = await SpinConfig.findOne().sort({ createdAt: -1 });
     if (!config) {
       return { status: false, message: 'Spin configuration not found' };
     }
 
-    // Register anonymous user if not exists
     let anonUser = await AnonymousUser.findOne({ visitorId: cleanedVisitorId });
     if (!anonUser) {
       anonUser = new AnonymousUser({ visitorId: cleanedVisitorId });
       await anonUser.save();
     }
 
-    // Daily spin limit check
     const { start, end } = getTodayBounds();
     const spinsToday = await Spin.countDocuments({
       visitorId: cleanedVisitorId,
@@ -180,7 +157,6 @@ export async function handleSpin(visitorId) {
       return { status: false, message: 'You have already spun today' };
     }
 
-    // Daily winner limit check
     const winnersToday = await Spin.countDocuments({
       result: 'win',
       createdAt: { $gte: start, $lt: end }
@@ -192,12 +168,15 @@ export async function handleSpin(visitorId) {
     let prize = null;
 
     if (canWin && Math.random() <= config.winProbability) {
-      const prizes = await Prize.find(); // Removed isActive filter
+      const prizes = await Prize.find();
+      const selectedPrize = pickPrizeByChance(prizes);
 
-      if (prizes.length > 0) {
-        const selectedPrize = pickPrizeByChance(prizes); // use the weighted picker
-
-        if (selectedPrize) {
+      if (selectedPrize) {
+        // Treat prizes with cardClass 'red' as lose
+        if (selectedPrize.cardClass && selectedPrize.cardClass.toLowerCase() === 'red') {
+          spinResult = 'lose';
+          prize = null;
+        } else {
           spinResult = 'win';
           prize = selectedPrize;
         }
@@ -216,6 +195,7 @@ export async function handleSpin(visitorId) {
       status: true,
       message: spinResult === 'win' ? 'Congratulations! You won!' : 'Better luck next time!',
       data: {
+        visitorId: cleanedVisitorId,
         result: spinResult,
         spinId: savedSpin._id,
         prize: prize ? {
@@ -225,12 +205,11 @@ export async function handleSpin(visitorId) {
           brand: prize.brand,
           value: prize.value,
           walletAmount: prize.walletAmount,
-          description: prize.description,
+          description: prize.description
         } : null
       }
     };
-    
-    
+
   } catch (error) {
     console.error('Spin Error:', error);
     return {
