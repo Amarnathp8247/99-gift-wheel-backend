@@ -46,15 +46,55 @@ export const adminLogin = async (req, res, next) => {
 
 export const getUsers = async (req, res) => {
   try {
-  
+    // Fetch users with spins and prize populated
+    const users = await userModel
+      .find()
+      .select('-password -__v')
+      .populate({
+        path: 'spins',
+        select: '_id prize createdAt',
+        populate: {
+          path: 'prize',
+          select: 'name walletAmount'
+        }
+      });
 
-    // ✅ Fetch all users, excluding password and internal fields
-    const users = await userModel.find().select('-password -__v');
+    const usersWithStats = users.map(user => {
+      const spins = user.spins || [];
+
+      let totalWins = 0;
+      let totalLoses = 0;
+
+      // Count wins and loses
+      spins.forEach(spin => {
+        if (spin.prize?.name?.toLowerCase().includes('better luck')) {
+          totalLoses++;
+        } else {
+          totalWins++;
+        }
+      });
+
+      // Determine result based on latest spin
+      const sortedSpins = [...spins].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const latestSpin = sortedSpins[0];
+      let result = 'no spins';
+
+      if (latestSpin?.prize?.name) {
+        result = latestSpin.prize.name.toLowerCase().includes('better luck') ? 'lose' : 'win';
+      }
+
+      return {
+        ...user.toObject(),
+        totalWins,
+        totalLoses,
+        result
+      };
+    });
 
     return res.status(200).json({
       status: true,
       message: 'Users fetched successfully',
-      data: users,
+      data: usersWithStats,
     });
 
   } catch (error) {
@@ -67,6 +107,8 @@ export const getUsers = async (req, res) => {
     });
   }
 };
+
+
 
 
 

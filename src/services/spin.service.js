@@ -62,7 +62,9 @@ export async function createSpinConfig(data) {
   try {
     const existingConfig = await SpinConfig.findOne();
     if (existingConfig) {
-      return { status: false, message: 'Spin configuration already exists. Use update instead.', data: null };
+      // Perform an update instead
+      const updated = await SpinConfig.findByIdAndUpdate(existingConfig._id, data, { new: true });
+      return { status: true, message: 'Spin config updated (auto)', data: updated };
     }
     const config = new SpinConfig(data);
     const savedConfig = await config.save();
@@ -71,6 +73,7 @@ export async function createSpinConfig(data) {
     return { status: false, message: 'Failed to save spin configuration', data: null };
   }
 }
+
 
 export async function updateSpinConfig(data) {
   try {
