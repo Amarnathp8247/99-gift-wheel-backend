@@ -10,14 +10,13 @@ export const register = async (req, res) => {
       name,
       email,
       mobile,
-      gender,
       password,
       city,
       visitorId,
       parent_id = null,
     } = req.body;
 
-    if (!name || !email || !mobile || !gender || !password || !city || !visitorId) {
+    if (!name || !email || !mobile || !password || !city) {
       return res.status(400).json({
         status: false,
         message: 'All fields including visitorId are required',
@@ -49,7 +48,6 @@ export const register = async (req, res) => {
           name,
           email,
           mobile,
-          gender,
           password,
           parent_id,
           city,
@@ -77,7 +75,6 @@ export const register = async (req, res) => {
       name,
       email,
       mobile,
-      gender,
       password: hashedPassword,
       city,
       parent_id,
@@ -106,7 +103,6 @@ export const register = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         mobile: newUser.mobile,
-        gender: newUser.gender,
         city: newUser.city,
         parent_id: newUser.parent_id,
         walletAmount: newUser.walletAmount,

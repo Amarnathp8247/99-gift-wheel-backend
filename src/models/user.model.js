@@ -6,7 +6,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true },
   mobile: { type: String, required: true, unique: true, match: /^[6-9]\d{9}$/ },
-  gender: { type: String, enum: ['male', 'female', 'other'], required: true },
+  gender: { type: String, enum: ['male', 'female', 'other'] },
   password: { type: String, required: true },
   city: { type: String, required: true },
   parent_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
