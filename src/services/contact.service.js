@@ -6,10 +6,10 @@ import Contact from '../models/contactUs.model.js';
  * @returns {Promise<Contact>}
  */
 export const createContact = async (data) => {
-  const { firstname, lastname , email, subject, message } = data;
+  const { firstname, lastname ,phoneNo, email, subject, message } = data;
 
   // Validate required fields
-  if (!lastname || !lastname || !email || !subject || !message) {
+  if (!lastname || !lastname || !phoneNo || !email || !subject || !message) {
     throw new Error('All fields are required');
   }
 
@@ -17,6 +17,7 @@ export const createContact = async (data) => {
   const contact = new Contact({
     firstname,
     lastname,
+    phoneNo,
     email,
     subject,
     message,
